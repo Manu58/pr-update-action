@@ -1,6 +1,6 @@
-name: "Pull Request Updater GitHub Action"
-description: "GitHub Action that updates a pull request with information extracted from branch name"
-author: "Tamim Khan"
+name: "New Pull Request Updater GitHub Action"
+description: "GitHub Action that updates a pull request with information extracted from branch name a fork from Tamin Khan's action"
+author: "Marc Emanuel"
 runs:
   using: "node24"
   main: "dist/index.js"

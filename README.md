@@ -12,9 +12,11 @@ Create a workflow yaml file (for e.g. `.github/workflows/update-pr.yml`). See [C
 ### Inputs
 
 #### Required
+
 - `repo-token`: secret token to allow making calls to GitHub's rest API (for e.g. `${{ secrets.GITHUB_TOKEN }}`)
 
-#### Optional
+####
+
 - `base-branch-regex`: regex to match text from the base branch name
 - `head-branch-regex`: regex to match text from the head branch name
 - `lowercase-branch`: whether to lowercase branch name before matching (default: `true`)
@@ -24,7 +26,7 @@ Create a workflow yaml file (for e.g. `.github/workflows/update-pr.yml`). See [C
 - `title-uppercase-base-match`: whether to uppercase matched text from base branch in title (default: `true`)
 - `title-uppercase-head-match`: whether to uppercase matched text from head branch in title (default: `true`)
 - `body-template`: text template to update body with
-- `body-update-action`: whether to prefix or replace body with body-template (default: `prefix`)
+- `body-update-action`: whether to prefix, suffix, or replace body with body-template (default: `prefix`)
 - `body-newline-count`: number of newlines to separate body and its prefix or suffix (default: `2`)
 - `body-uppercase-base-match`: whether to uppercase matched text from base branch in body (default: `true`)
 - `body-uppercase-head-match`: whether to uppercase matched text from head branch in body (default: `true`)
@@ -60,7 +62,7 @@ jobs:
   update_pr:
     runs-on: ubuntu-latest
     steps:
-    - uses: tzkhan/pr-update-action@v2
+    - uses: tzkhan/pr-update-action@v3
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         base-branch-regex: '[a-z\d-_.\\/]+'
