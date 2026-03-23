@@ -60,7 +60,7 @@ jobs:
   update_pr:
     runs-on: ubuntu-latest
     steps:
-    - uses: Manu58/pr-update-action@v3
+    - uses: Manu58/pr-update-action@v3.0.0
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         base-branch-regex: '[a-z\d-_.\\/]+'
