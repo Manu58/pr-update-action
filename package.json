@@ -6,7 +6,7 @@
   "scripts": {
     "build": "ncc build index.js --out dist",
     "lint": "eslint index.js",
-    "test": "eslint index.js && jest"
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -24,11 +24,12 @@
   },
   "homepage": "https://github.com/tzkhan/pr-update-action/#readme",
   "dependencies": {
-    "@actions/core": "^1.2.6",
-    "@actions/github": "^4.0.0"
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0"
   },
   "devDependencies": {
-    "eslint": "^6.3.0",
-    "jest": "^24.9.0"
+    "@vercel/ncc": "^0.38.3",
+    "eslint": "^9.0.0",
+    "jest": "^29.7.0"
   }
 }

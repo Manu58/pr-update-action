@@ -1,10 +1,27 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 
+const VALID_UPDATE_ACTIONS = ['prefix', 'suffix', 'replace'];
+
+function tryRegex(pattern) {
+  try {
+    return new RegExp(pattern);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function run() {
   try {
-    const baseTokenRegex = new RegExp('%basebranch%', "g");
-    const headTokenRegex = new RegExp('%headbranch%', "g");
+    const baseTokenRegex = /%basebranch%/g;
+    const headTokenRegex = /%headbranch%/g;
+
+    if (!github.context.payload.pull_request) {
+      core.setFailed('This action only works on pull_request events');
+      return;
+    }
+
+    const parsedNewlineCount = parseInt(core.getInput('body-newline-count'));
 
     const inputs = {
       token: core.getInput('repo-token', {required: true}),
@@ -18,9 +35,19 @@ async function run() {
       titleUppercaseHeadMatch: (core.getInput('title-uppercase-head-match').toLowerCase() === 'true'),
       bodyTemplate: core.getInput('body-template'),
       bodyUpdateAction: core.getInput('body-update-action').toLowerCase(),
-      bodyNewlineCount: parseInt(core.getInput('body-newline-count')),
+      bodyNewlineCount: Number.isNaN(parsedNewlineCount) ? 2 : parsedNewlineCount,
       bodyUppercaseBaseMatch: (core.getInput('body-uppercase-base-match').toLowerCase() === 'true'),
       bodyUppercaseHeadMatch: (core.getInput('body-uppercase-head-match').toLowerCase() === 'true'),
+    }
+
+    if (!VALID_UPDATE_ACTIONS.includes(inputs.titleUpdateAction)) {
+      core.setFailed(`Invalid title-update-action: '${inputs.titleUpdateAction}'. Must be one of: ${VALID_UPDATE_ACTIONS.join(', ')}`);
+      return;
+    }
+
+    if (!VALID_UPDATE_ACTIONS.includes(inputs.bodyUpdateAction)) {
+      core.setFailed(`Invalid body-update-action: '${inputs.bodyUpdateAction}'. Must be one of: ${VALID_UPDATE_ACTIONS.join(', ')}`);
+      return;
     }
 
     const baseBranchRegex = inputs.baseBranchRegex.trim();
@@ -40,11 +67,17 @@ async function run() {
     }
 
     if (matchBaseBranch) {
+      const baseRegex = tryRegex(baseBranchRegex);
+      if (!baseRegex) {
+        core.setFailed(`Invalid base-branch-regex: '${baseBranchRegex}'`);
+        return;
+      }
+
       const baseBranchName = github.context.payload.pull_request.base.ref;
       const baseBranch = inputs.lowercaseBranch ? baseBranchName.toLowerCase() : baseBranchName;
       core.info(`Base branch: ${baseBranch}`);
 
-      const baseMatches = baseBranch.match(new RegExp(baseBranchRegex));
+      const baseMatches = baseBranch.match(baseRegex);
       if (!baseMatches) {
         core.setFailed('Base branch name does not match given regex');
         return;
@@ -57,11 +90,17 @@ async function run() {
     }
 
     if (matchHeadBranch) {
+      const headRegex = tryRegex(headBranchRegex);
+      if (!headRegex) {
+        core.setFailed(`Invalid head-branch-regex: '${headBranchRegex}'`);
+        return;
+      }
+
       const headBranchName = github.context.payload.pull_request.head.ref;
       const headBranch = inputs.lowercaseBranch ? headBranchName.toLowerCase() : headBranchName;
       core.info(`Head branch: ${headBranch}`);
 
-      const headMatches = headBranch.match(new RegExp(headBranchRegex));
+      const headMatches = headBranch.match(headRegex);
       if (!headMatches) {
         core.setFailed('Head branch name does not match given regex');
         return;
@@ -79,21 +118,21 @@ async function run() {
       pull_number: github.context.payload.pull_request.number,
     }
 
-    const upperCase = (upperCase, text) => upperCase ? text.toUpperCase() : text;
+    const toCase = (shouldUpper, text) => shouldUpper ? text.toUpperCase() : text;
 
     const title = github.context.payload.pull_request.title || '';
     const processedTitleText = inputs.titleTemplate
-      .replace(baseTokenRegex, upperCase(inputs.titleUppercaseBaseMatch, matches.baseMatch))
-      .replace(headTokenRegex, upperCase(inputs.titleUppercaseHeadMatch, matches.headMatch));
+      .replace(baseTokenRegex, toCase(inputs.titleUppercaseBaseMatch, matches.baseMatch))
+      .replace(headTokenRegex, toCase(inputs.titleUppercaseHeadMatch, matches.headMatch));
     core.info(`Processed title text: ${processedTitleText}`);
 
-    const updateTitle = ({
+    const updateTitle = processedTitleText.length > 0 && ({
       prefix: !title.toLowerCase().startsWith(processedTitleText.toLowerCase()),
       suffix: !title.toLowerCase().endsWith(processedTitleText.toLowerCase()),
       replace: title.toLowerCase() !== processedTitleText.toLowerCase(),
-    })[inputs.titleUpdateAction] || false;
+    })[inputs.titleUpdateAction];
 
-    core.setOutput('titleUpdated', updateTitle.toString());
+    core.setOutput('titleUpdated', (!!updateTitle).toString());
 
     if (updateTitle) {
       request.title = ({
@@ -108,17 +147,17 @@ async function run() {
 
     const body = github.context.payload.pull_request.body || '';
     const processedBodyText = inputs.bodyTemplate
-      .replace(baseTokenRegex, upperCase(inputs.bodyUppercaseBaseMatch, matches.baseMatch))
-      .replace(headTokenRegex, upperCase(inputs.bodyUppercaseHeadMatch, matches.headMatch));
+      .replace(baseTokenRegex, toCase(inputs.bodyUppercaseBaseMatch, matches.baseMatch))
+      .replace(headTokenRegex, toCase(inputs.bodyUppercaseHeadMatch, matches.headMatch));
     core.info(`Processed body text: ${processedBodyText}`);
 
-    const updateBody = ({
+    const updateBody = processedBodyText.length > 0 && ({
       prefix: !body.toLowerCase().startsWith(processedBodyText.toLowerCase()),
       suffix: !body.toLowerCase().endsWith(processedBodyText.toLowerCase()),
       replace: body.toLowerCase() !== processedBodyText.toLowerCase(),
-    })[inputs.bodyUpdateAction] || false;
+    })[inputs.bodyUpdateAction];
 
-    core.setOutput('bodyUpdated', updateBody.toString());
+    core.setOutput('bodyUpdated', (!!updateBody).toString());
 
     if (updateBody) {
       request.body = ({
@@ -136,7 +175,7 @@ async function run() {
     }
 
     const octokit = github.getOctokit(inputs.token);
-    const response = await octokit.pulls.update(request);
+    const response = await octokit.rest.pulls.update(request);
 
     core.info(`Response: ${response.status}`);
     if (response.status !== 200) {
